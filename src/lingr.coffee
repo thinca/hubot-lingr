@@ -1,12 +1,23 @@
 {Robot, Adapter, TextMessage} = require 'hubot'
+splitStrings = require './split_strings'
 crypto = require 'crypto'
+
+MESSAGE_LENGTH_MAX = 1000
 
 class Lingr extends Adapter
   send: (envelope, strings...) ->
+    partStrings = splitStrings(strings, MESSAGE_LENGTH_MAX)
+    fire = =>
+      if partStrings.length != 0
+        str = partStrings.shift()
+        @sendPart(envelope.room, str, fire)
+    fire()
+
+  sendPart: (room, string, cb) ->
     query =
-      room: envelope.room
+      room: room
       bot: @name
-      text: strings.join "\n"
+      text: string
       bot_verifier: crypto.createHash('sha1').update(@name + @secret).digest('hex')
 
     @robot.http("http://lingr.com")
@@ -14,6 +25,7 @@ class Lingr extends Adapter
       .query(query)
       .get() (err, res, body) ->
         console.log body
+        cb?()
 
   reply: (envelope, strings...) ->
     for str in strings
